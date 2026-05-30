@@ -15,3 +15,16 @@ Course and reference implementation for building a 32-bit x86 operating system f
 * [NASM for Windows](https://www.nasm.us/) (ассемблер)
 * [QEMU for Windows](https://www.qemu.org/download/#windows) (эмулятор архитектуры x86)
 * Стандартная командная строка Windows (CMD или PowerShell)
+Компиляция исходного кода (Pure Assembly):
+
+DOS
+nasm -f bin boot.asm -o boot.bin
+nasm -f bin kernel.asm -o kernel.bin
+Сборка образа диска (Склейка бинарных файлов):
+
+DOS
+copy /b boot.bin + kernel.bin os_image.bin
+Запуск в эмуляторе QEMU:
+
+DOS
+qemu-system-i386 -drive format=raw,file=os_image.bin,index=0,if=floppy
