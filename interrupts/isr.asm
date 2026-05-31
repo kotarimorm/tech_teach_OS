@@ -1,38 +1,47 @@
 [bits 32]
 
-; Макрос для быстрой отправки EOI (End of Interrupt) мастеру PIC
+; Safe Macro: preserves EAX register on stack while sending EOI
 %macro PIC_SEND_EOI 0
+    push eax
     mov al, 0x20
     out 0x20, al
+    pop eax
 %endmacro
 
-; Обработчик IRQ0 (Таймер) - вектор 0x20
 isr_timer:
-    pusha           ; Сохраняем все регистры текущего потока
-    
-    ; -> Здесь в будущем будет вызов твоего планировщика (Scheduler)
-    
+    pusha
     PIC_SEND_EOI
-    popa            ; Восстанавливаем регистры
-    iret            ; Выход из прерывания
+    popa
+    iret
 
-; Обработчик IRQ1 (Клавиатура) - вектор 0x21
 isr_keyboard:
     pusha
     
-    ; Читаем скан-код нажатой клавиши из порта 0x60
-    in al, 0x60
+    in al, 0x60             ; Scan code is safe in AL now, PIC_SEND_EOI won't destroy it
     
-    ; -> Здесь будет передача скан-кода в драйвер клавиатуры
+    ; -> Your driver code here (can safely use AL)
     
     PIC_SEND_EOI
     popa
     iret
 
-; Глобальный обработчик исключений процессора (заглушка)
-; Если ловим Page Fault, Double Fault и т.д.
+; Global Exception Handler (For exceptions WITHOUT error code)
 isr_exception:
     pusha
-    ; Для начала просто глушим систему (Kernel Panic)
     cli
     hlt
+    jmp $
+
+; Dedicated Page Fault Handler (Example of exception WITH error code)
+isr_page_fault:
+    ; Processors pushes Error Code here automatically
+    pusha
+    
+    ; -> Kernel Panic visualization logic here
+    
+    cli
+    hlt
+    ; If we ever want to restore from Page Fault:
+    ; popa
+    ; add esp, 4   ; MANDATORY: Pop the error code from the stack before iret
+    ; iret
