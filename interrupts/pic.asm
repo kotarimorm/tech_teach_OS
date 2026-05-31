@@ -6,14 +6,14 @@ PIC2_COMMAND equ 0xA0
 PIC2_DATA    equ 0xA1
 
 remap_pic:
-    ; ICW1: начало инициализации
+    ; ICW1: Start initialization
     mov al, 0x11
     out PIC1_COMMAND, al
     call io_wait
     out PIC2_COMMAND, al
     call io_wait
 
-    ; ICW2: смещение векторов (Мастер = 0x20, Слейв = 0x28)
+    ; ICW2: Vector offset (Master = 0x20, Slave = 0x28)
     mov al, 0x20
     out PIC1_DATA, al
     call io_wait
@@ -21,7 +21,7 @@ remap_pic:
     out PIC2_DATA, al
     call io_wait
 
-    ; ICW3: настройка каскадирования
+    ; ICW3: Cascading setup
     mov al, 0x04
     out PIC1_DATA, al
     call io_wait
@@ -29,20 +29,20 @@ remap_pic:
     out PIC2_DATA, al
     call io_wait
 
-    ; ICW4: режим 8086/88
+    ; ICW4: 8086/88 mode
     mov al, 0x01
     out PIC1_DATA, al
     call io_wait
     out PIC2_DATA, al
     call io_wait
 
-    ; Временно маскируем все аппаратные прерывания
+    ; Temporarily mask all hardware interrupts
     mov al, 0xFF
     out PIC1_DATA, al
     out PIC2_DATA, al
     ret
     
-; Искусственная задержка для медленных I/O портов старого железа
+; Artificial delay for slow I/O ports on older hardware
 io_wait:
     out 0x80, al
     ret
