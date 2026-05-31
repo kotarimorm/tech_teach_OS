@@ -1,18 +1,19 @@
 [bits 32]
 
-; Исключение 0: Деление на ноль (Divide by Zero Exception)
+; Exception 0: Divide by Zero Exception
 isr_divide_by_zero:
+    ; Safe crash dump approach for kernel panic
     pusha
     
-    ; Выводим красный символ 'X' в левый верхний угол экрана (ошибка)
+    ; Print a red 'X' character to the top-left corner of the screen
     mov dword [0xB8000], 0x0458 
     
-    ; Глушим систему, так как продолжать работу после такого нельзя
-    cli
+    ; Halt the system safely (interrupts are already disabled by Interrupt Gate)
     hlt
+    jmp $                   ; In case of a spurious NMI wakeup, trap execution here
 
-; Программное прерывание 0x80: Пример системного вызова (Syscall)
-; Ожидает номер функции в EAX
+; Software Interrupt 0x80: Example of a System Call (Syscall)
+; Expects the function number in EAX
 isr_syscall:
     pusha
     
@@ -23,11 +24,15 @@ isr_syscall:
     jmp .done
 
 .sys_print:
-    ; Логика вывода на экран (например, адреса строки из EBX)
-    jmp .done
+    ; Screen output logic (e.g., string address from EBX)
+    jmp .done               ; Explicit jump to prevent falling into sys_exit
     
 .sys_exit:
-    ; Логика завершения процесса
+    ; Process termination logic
+    cli                     ; Disable interrupts for this thread
+.loop_exit:
+    hlt                     ; Safely halt this thread/core
+    jmp .loop_exit          ; Prevent fall-through into popa/iret
     
 .done:
     popa
