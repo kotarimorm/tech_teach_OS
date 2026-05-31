@@ -119,3 +119,63 @@
 **Where to Check:**
 * **The `org` Directive:** If your bootloader loads your kernel at physical memory address `0x100000` (1MB mark), but your `kernel.asm` file does not specify `org 0x100000` at the very top, NASM calculates all labels relative to `0x0000`. 
 * **Relative vs Absolute:** Short jumps (`jmp short` / `jz`) will work because they use relative offsets, but any absolute reference like `mov eax, [my_variable]` or calls to functional pointers will completely miss the target.
+
+### 21. STALE TLB CACHE (PAGE UPDATES NOT REFLECTING)
+**Core Issue:** You update a Page Table Entry (PTE) to point to a new physical address or change its permissions, but the CPU continues to use the old mapping, causing random Page Faults or silent data corruption.
+**Where to Check:**
+* **Translation Lookaside Buffer (TLB):** The CPU caches paging structures in the TLB. Modifying a page table entry in memory does not automatically update this cache.
+* **Invalidation:** You must invalidate the stale cache entry using the `invlpg [address]` instruction right after updating a PTE, or completely flush the TLB by reloading `CR3` (`mov cr3, eax`).
+
+### 22. EXCEPTION ERROR CODE MISMATCH (STACK ALIGNMENT DESTROYED)
+**Core Issue:** Returning from specific interrupt handlers via `iret` causes an immediate General Protection Fault (0x03) or executes garbage code because the stack pointer is misaligned.
+**Where to Check:**
+* **Automatic Pushes:** x86 Exceptions 8, 10, 11, 12, 13, and 14 automatically push an extra 32-bit error code onto the stack *after* pushing EIP/CS/EFLAGS. Other interrupts (like the PIT or keyboard) do not.
+* **ISR Alignment:** If your generic ISR macro handles both types the same way without popping the error code off the stack before executing `iret`, the CPU will interpret the error code as the return EIP. Ensure your error-code handlers execute an explicit `add esp, 4` before `popad` and `iret`.
+
+### 23. INTERRUPT VS TRAP GATES (UNINTENDED RE-ENTRANCY)
+**Core Issue:** While executing a hardware interrupt handler, the exact same interrupt fires again, stacking up contexts until the kernel hits a Stack Overflow or a Double Fault.
+**Where to Check:**
+* **IDT Flags:** Check the access byte of your IDT descriptors. An Interrupt Gate (`0x8E`) automatically clears the IF bit in `EFLAGS` when triggered, blocking further interrupts until `iret` restores them. 
+* **Trap Gates:** A Trap Gate (`0xEF`) leaves the IF bit enabled. If you accidentally used Trap Gate attributes for hardware IRQs (like PIT or Keyboard), any prolonged ISR processing allows interrupts to nest uncontrollably.
+
+### 24. UNINITIALIZED DATA SEGMENTS POST-CR0 PROTECTED MODE SWITCH
+**Core Issue:** You successfully execute the far jump after setting the PE bit in `CR0`, but the very first instruction that accesses a memory variable causes an instant General Protection Fault.
+**Where to Check:**
+* **Segment Registers:** The far jump only updates the `CS` register. The remaining segment registers (`DS`, `ES`, `FS`, `GS`, `SS`) still hold real-mode selectors or undefined garbage values.
+* **Explicit Reload:** Immediately after your protected mode far label, reload all data segment registers with your GDT data selector index (e.g., `0x10` if your data descriptor is at offset 16).
+
+### 25. SERIAL PORT (COM1) DEBUG HANG (INFINITE POLLING)
+**Core Issue:** Adding serial output logs for debugging causes the entire system boot process to hang indefinitely on a real machine, though it might work fine in QEMU.
+**Where to Check:**
+* **Line Status Register:** Your `serial_putc` routine polls port `0x3FD` waiting for bit 5 (Transmitter Holding Register Empty) to become 1.
+* **Hardware Initialization:** If you forgot to properly initialize the baud rate, parity, and line control registers on ports `0x3F8`-`0x3FE` early in the boot sequence, the serial hardware state will never signal readiness to receive bytes.
+
+### 26. CMOS / RTC READ LOCKUP (UIP BIT STALL)
+**Core Issue:** Reading the system real-time clock via ports `0x70`/`0x71` returns corrupted time metrics or hangs the kernel execution loop.
+**Where to Check:**
+* **Update In Progress (UIP):** Before reading RTC registers (Seconds, Minutes, Hours), you must poll CMOS Status Register A (Index `0x0A`) and check bit 7. If it is 1, the clock update is currently happening.
+* **Timeout Guards:** A raw `jmp $` polling loop on this bit can lock up if the hardware state freezes. Always implement a loop counter or read the data quickly during the safe update-ended status window.
+
+### 27. TEXT MODE INVISIBLE TEXT (VGA COLOR MISMATCH)
+**Core Issue:** Your VGA string functions execute without errors, but the monitor screen remains completely blank or characters look completely wiped out.
+**Where to Check:**
+* **Attribute Byte Structure:** VGA Text Mode (`0xB8000`) uses 2 bytes per character: `Byte 0` is the ASCII character, `Byte 1` is the attribute (colors).
+* **Color Schemes:** If your attribute mask evaluates to `0x00`, you are printing black text on a black background. Ensure the attribute byte sets high bits for background and low bits for foreground (e.g., `0x0F` for white text on a black background).
+
+### 28. UNINITIALIZED BSS SECTION (GARBAGE GLOBAL VARIABLES)
+**Core Issue:** Global variables initialized to 0 or left uninitialized in your assembly/C structures contain random, unpredictable junk RAM values upon kernel execution.
+**Where to Check:**
+* **Linker Allocation:** The compiler/assembler separates uninitialized globals into the `.bss` section. Unlike `.text` and `.data`, the `.bss` section does not take up real byte space inside the compiled binary file on disk.
+* **Boot Initialization:** Your bootloader must explicitly read the `.bss` bounds from the linker script and clear that entire memory area with zeros using a `memset` routine before launching the main kernel routines.
+
+### 29. 16-BYTE ALIGNMENT FAULTS FOR SSE INSTRUCTIONS
+**Core Issue:** Executing basic vector instructions like `movaps` or `movntps` inside an ISR or core function throws an Invalid Opcode (#UD) or General Protection Fault (#GP).
+**Where to Check:**
+* **Stack Pointer (ESP) Alignment:** SIMD/SSE optimization instructions expect operands in memory to be aligned to a strict 16-byte boundary. If your stack pointer or memory buffer address is misaligned by even 1 byte, the instruction fails at hardware level.
+* **ISR Entry Adjustments:** Ensure that when setting up your kernel execution stacks or interrupt stack frames, the base pointer is aligned to 16 bytes before processing complex instructions.
+
+### 30. MALFORMED LINKER SCRIPT VMA/LMA OVERLAP
+**Core Issue:** The kernel builds cleanly, but variables contain data that belongs to completely different functions, or code structures appear truncated.
+**Where to Check:**
+* **Virtual vs Load Memory Address:** Check your linker script sections layout. If the Virtual Memory Address (VMA) and Load Memory Address (LMA) layout bounds cross or overlap, code blocks might overwrite initial data structures when loaded into RAM by the bootloader.
+* **Binary Analysis:** Verify the output map or use parsing utilities (`readelf -S kernel.bin`) to ensure section memory offsets increments linearly without layout collisions.
