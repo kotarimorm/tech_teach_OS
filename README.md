@@ -30,11 +30,6 @@ DOS
 qemu-system-i386 -drive format=raw,file=os_image.bin,index=0,if=floppy
 
 ---
-### Structure
-* `src/` — Pure Assembly source code
-* `scripts/` — Build and run automation for Windows
-* `build/` — Compiled binaries (ignored by git)
-
 ### Philosophy
 This is a minimal test stand. No C, no makefiles, no dependencies. 
 Just raw hardware control and NASM. 
