@@ -59,3 +59,63 @@
     * **EIP** — the exact instruction where it crashed.
     * **ESP/EBP** — where the stack is right now (and if it's alive).
     * **EFLAGS** — whether interrupts are currently enabled (bit 9).
+ 
+### 11. A20 LINE NOT ENABLED (MEMORY WRAPAROUND)
+**Core Issue:** Attempting to access memory above 1MB wraps around to the first megabyte of RAM, silently overwriting the IVT, BIOS data, or early bootloader code.
+**Where to Check:**
+* **Memory Test:** Write a distinct signature byte to `0x100000` (1MB mark) and check if the value at `0x000000` changed. If it matches, memory is wrapping around.
+* **Activation Routine:** Ensure you toggle the Fast A20 gate via port `0x92` (setting bit 1) or via the keyboard controller ports (`0x64`/`0x60`) strictly before entering Protected Mode.
+
+### 12. PAGE STRUCTURE UNALIGNED (CR3 CORRUPTION)
+**Core Issue:** Enabling paging causes an immediate Page Fault (0x0E) or Triple Fault, even though entry mapping logic looks correct.
+**Where to Check:**
+* **4KB Boundaries:** The MMU ignores the lower 12 bits of the address loaded into `CR3` and the addresses inside PDE/PTE entries. Ensure your page directory and tables use `align 4096` in your assembly allocation.
+* **Flag Overwrite:** If a table address is not aligned, its lower bits will blend into the page flags (Present, Read/Write, User), causing the MMU to read a garbage physical address while misinterpreting permissions.
+
+### 13. DIRECTION FLAG CORRUPTION (REVERSE MEMCPY/MEMSET)
+**Core Issue:** String operations like `rep movsd` or `rep stosd` start destroying adjacent kernel data or throwing Page Faults because memory is processed backward.
+**Where to Check:**
+* **The DF Flag:** If an interrupt or an external function executed a `std` (Set Direction Flag) instruction to process data backward and did not clear it, your next `memcpy` or `memset` will decrement `EDI`/`ESI` instead of incrementing them.
+* **Safe Entry:** Always put a `cld` (Clear Direction Flag) instruction at the very beginning of your `memcpy`, `memset`, and string-handling subroutines to force forward processing.
+
+### 14. SPURIOUS INTERRUPTS (IRQ 7 / IRQ 15 HANGS)
+**Core Issue:** The kernel receives unexpected interrupts on vector 7 or 15 without any hardware triggering them. Handling them like a normal IRQ freezes the PIC.
+**Where to Check:**
+* **Hardware Noise:** Real hardware and emulators like QEMU generate spurious interrupts when an input line toggles improperly. Master PIC sends an IRQ 7; Slave PIC sends an IRQ 15.
+* **Conditional EOI:** Check the In-Service Register (ISR) of the PIC via port `0x20` before sending a generic End-of-Interrupt (`0x20`). Spurious IRQ 7 does *not* require an EOI. Sending an EOI to a spurious interrupt can break the PIC status state.
+
+### 15. MISSING TSS FOR RING 3 (GPF ON HARDWARE INTERRUPT)
+**Core Issue:** The system successfully switches to User Mode (Ring 3), but the exact millisecond a hardware interrupt (like the PIT timer) fires, the CPU throws a General Protection Fault or Triple Fault.
+**Where to Check:**
+* **Stack Switching Registers:** When an interrupt occurs in Ring 3, the CPU must switch back to the Ring 0 kernel stack. It reads where this stack is from the Task State Segment (TSS). If you haven't loaded a valid TSS descriptor into the task register (`ltr`), the CPU cannot save the execution state.
+* **TSS Fields:** Ensure your TSS structure has valid `SS0` and `ESP0` fields pointing to your kernel stack space.
+
+### 16. UNPROTECTED ISR ENTRY (REGISTER REUSE SMASHING)
+**Core Issue:** Returning from an interrupt handler causes the main kernel loop to exhibit erratic behavior, corrupt loops, or jump to completely wrong conditional branches.
+**Where to Check:**
+* **Register Preservation:** Interrupts are asynchronous and can fire anywhere. If your ISR modifies `EAX`, `ECX`, or `EDX` without saving them, the underlying code loses its state.
+* **Context Macro:** Ensure your ISR entry stub executes a strict `pushad` (or explicitly pushes modified registers) and your exit stub executes `popad` followed by `iret`. Never use a standard `ret` inside an ISR.
+
+### 17. PCI SPACE CONFIGURATION LOCKUP (INVALID PORT ACCESS)
+**Core Issue:** The PCI bus scanner reads `0xFFFFFFFF` for every single device/slot, or causes the system bus to hang completely during the scan.
+**Where to Check:**
+* **Bit Positioning:** Reading PCI configuration space requires writing a 32-bit address to port `0xCF8` and reading the result from port `0xCFC`. The Enable bit (bit 31) of the address sent to `0xCF8` must be set to 1.
+* **Alignment:** The offset field within the configuration address must be 4-byte aligned (the lowest two bits must be 0) when reading whole DWORDS.
+
+### 18. ATA PIO POLLING HANG (STATUS REGISTER STUCK)
+**Core Issue:** The kernel tries to read a sector from the IDE/ATA hard disk controller using PIO mode, but loops infinitely while waiting for the drive status to become ready.
+**Where to Check:**
+* **Floating Bus:** Reading from an unmapped or secondary controller port that doesn't exist often returns `0xFF`. A status byte of `0xFF` means the busy bit and error bits look constantly set. Validate your base I/O port mapping (Primary is usually `0x1F0`).
+* **The 400ns Delay:** After sending a command byte to the command port, you must read the alternate status register or wait at least 400 nanoseconds before reading the regular status port to give the drive hardware time to set the BSY bit.
+
+### 19. CR4/CR0 MISSING FLAGS FOR FPU/SSE (INVALID OPCODE #UD)
+**Core Issue:** Executing any basic floating-point or vector instruction causes an immediate Invalid Opcode Exception (0x06).
+**Where to Check:**
+* **Coprocessor Bits:** Real x86 CPUs boot with the FPU and SSE extensions disabled or unconfigured in Protected Mode.
+* **Initialization Sequence:** You must clear the EM (Emulation) bit and set the MP (Monitor Coprocessor) bit in `CR0`. Additionally, you must set the OSFXSR and OSXMMEXCPT bits in `CR4` to enable SSE support and its respective exceptions before executing those instructions.
+
+### 20. RAW BINARY ORG MISMATCH (BROKEN ABSOLUTE JUMPS)
+**Core Issue:** You compile your kernel into a raw flat binary (`-f bin`), everything compiles without warnings, but conditional jumps and data memory lookups point to absolute garbage locations.
+**Where to Check:**
+* **The `org` Directive:** If your bootloader loads your kernel at physical memory address `0x100000` (1MB mark), but your `kernel.asm` file does not specify `org 0x100000` at the very top, NASM calculates all labels relative to `0x0000`. 
+* **Relative vs Absolute:** Short jumps (`jmp short` / `jz`) will work because they use relative offsets, but any absolute reference like `mov eax, [my_variable]` or calls to functional pointers will completely miss the target.
