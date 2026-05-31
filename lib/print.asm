@@ -1,67 +1,65 @@
-; lib/print.asm
-; Функция вывода байта в Hex-формате
-
 global print_hex_byte
-extern print_char       ; Предполагаем, что его Си-функция печати символа доступна
+extern print_char
 
 section .text
 
 ; ---------------------------------------------------------
 ; print_hex_byte
-; Переводит байт в ASCII (Hex) и выводит на экран.
-; Вход: AL = байт для вывода
-;       [esp + 8] = позиция на экране (pos), если передавать по cdecl
+; Converts a byte to ASCII (Hex) and prints it to the screen.
+; Calling convention: cdecl
+; Input:  [ebp + 8]  = byte to print (passed as 32-bit int)
+;         [ebp + 12] = current screen position (pos)
+; Returns: EAX = new screen position after printing
 ; ---------------------------------------------------------
 print_hex_byte:
     push ebp
     mov ebp, esp
-    push ebx
-    push ecx
+    push esi                ; Save callee-saved register (standard cdecl)
+    push edi                ; Save callee-saved register (standard cdecl)
 
-    mov cl, al              ; Сохраняем исходный байт в CL
-    mov ebx, [ebp + 8]      ; EBX = текущая позиция pos на экране
+    movzx esi, byte [ebp + 8] ; ESI = byte to print (extracted from stack)
+    mov edi, [ebp + 12]       ; EDI = current screen position (pos)
 
-    ; --- Шаг 1: Выводим старшую тетраду (старшие 4 бита) ---
-    mov al, cl
-    shr al, 4               ; Сдвигаем вправо, оставляя только старшие 4 бита
-    call .hex_to_ascii      ; Переводим 0x0..0xF в символ ASCII
+    ; --- Step 1: Print the high nibble (upper 4 bits) ---
+    mov eax, esi
+    shr eax, 4              ; Shift right to isolate the upper 4 bits
+    call .hex_to_ascii      ; Convert 0x0..0xF to an ASCII character
     
-    ; Вызываем print_char(AL, pos)
-    push ebx                ; 2-й аргумент: pos
+    ; Call print_char(character, pos)
+    push edi                ; 2nd argument: pos
     movzx eax, al
-    push eax                ; 1-й аргумент: символ ASCII
+    push eax                ; 1st argument: ASCII character
     call print_char
-    add esp, 8              ; Выравниваем стек
-    inc ebx                 ; Двигаем позицию на 1 символ вперед
+    add esp, 8              ; Clean up the stack after the call
+    inc edi                 ; Move position forward by 1 character
 
-    ; --- Шаг 2: Выводим младшую тетраду (младшие 4 бита) ---
-    mov al, cl
-    and al, 0x0F            ; Сбрасываем старшие биты маской
-    call .hex_to_ascii      ; Переводим в ASCII
+    ; --- Step 2: Print the low nibble (lower 4 bits) ---
+    mov eax, esi
+    and eax, 0x0F           ; Mask out the upper bits to keep the lower 4 bits
+    call .hex_to_ascii      ; Convert to ASCII
     
-    ; Вызываем print_char(AL, pos)
-    push ebx                ; 2-й аргумент: pos
+    ; Call print_char(character, pos)
+    push edi                ; 2nd argument: pos
     movzx eax, al
-    push eax                ; 1-й аргумент: символ ASCII
+    push eax                ; 1st argument: ASCII character
     call print_char
-    add esp, 8              ; Выравниваем стек
-    inc ebx                 ; Двигаем позицию для следующего вывода
+    add esp, 8              ; Clean up the stack after the call
+    inc edi                 ; Move position forward for the next output
 
-    ; Возвращаем новую позицию экрана в EAX (очень удобно для цепочки вывода)
-    mov eax, ebx            
+    mov eax, edi            ; Return the new screen position in EAX
 
-    pop ecx
-    pop ebx
+    pop edi                 ; Restore EDI
+    pop esi                 ; Restore ESI
     mov esp, ebp
     pop ebp
     ret
 
-; --- Вспомогательная микро-функция перевода 4 бит в ASCII ---
+; --- Helper micro-function to convert 4 bits to ASCII ---
 .hex_to_ascii:
     cmp al, 10
     jl .is_digit
-    add al, 'A' - 10        ; Если это A..F (переводим в буквы)
+    add al, 'A' - 10        ; If it is A..F (convert to letters)
     ret
 .is_digit:
-    add al, '0'             ; Если это 0..9 (переводим в цифры)
+    add al, '0'             ; If it is 0..9 (convert to digits)
     ret
