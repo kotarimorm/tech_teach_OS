@@ -1,29 +1,29 @@
-# Triple Fault (Тройная ошибка)
+# Triple Fault
 
-Triple Fault происходит, когда CPU пытается обработать исключение, но происходит новое исключение при попытке вызвать обработчик. Процессор сдается и перезагружается.
+A Triple Fault occurs when the CPU attempts to handle an exception, but a new exception happens while trying to invoke the handler. The processor gives up and resets.
 
-## 1. Сначала увидь ошибку (Логи QEMU)
-Никогда не дебажь вслепую. Запускай QEMU с флагами:
+## 1. First, see the error (QEMU Logs)
+Never debug blindly. Run QEMU with the following flags:
 `qemu-system-i386 -d int,cpu_reset -no-reboot -no-shutdown -monitor stdio -hda os.img`
 
-* `-d int`: Логирует каждое прерывание.
-* `-no-reboot`: Остановит машину сразу после Triple Fault, чтобы ты успел прочитать логи.
+* `-d int`: Logs every interruption.
+* `-no-reboot`: Stops the machine immediately after a Triple Fault so you have time to read the logs.
 
-## 2. Самые частые причины (Чек-лист)
+## 2. Most common causes (Checklist)
 
-### А. Некорректная таблица IDT
-Это причина №1.
-* **Проблема:** Указатель IDT (`lidt`) неверный, или адрес обработчика в дескрипторе указывает в никуда.
-* **Решение:** Проверь, что `idt_pointer` указывает на начало таблицы, а лимит установлен как `(размер_таблицы - 1)`.
+### A. Incorrect IDT table
+This is cause #1.
+* **Problem:** The IDT pointer (`lidt`) is invalid, or the handler address in the descriptor points to nowhere.
+* **Solution:** Verify that `idt_pointer` points to the start of the table, and the limit is set to `(table_size - 1)`.
 
-### Б. Стек переполнен или указывает на "мусор"
-* **Проблема:** Обработчик прерывания пытается сохранить регистры (`pusha`), но стек `ESP` указывает в невалидную память.
-* **Решение:** В загрузчике перед прыжком в ядро убедись, что `esp` установлен в безопасную область памяти (например, `0x90000`).
+### B. Stack overflow or points to "garbage"
+* **Problem:** The interrupt handler tries to save registers (`pusha`), but the `ESP` stack pointer points to invalid memory.
+* **Solution:** In the bootloader, before jumping into the kernel, make sure `esp` is set to a safe memory area (e.g., `0x90000`).
 
-### В. GDT не загружена или сегменты неверные
-* **Проблема:** Ты прыгнул в 32-битный код, но не сделал `mov ax, 0x10; mov ds, ax...` (обновление селекторов сегментов).
-* **Решение:** После `lgdt` обязательно обнови `cs` (через far jump) и все остальные сегментные регистры (`ds`, `es`, `fs`, `gs`, `ss`).
+### C. GDT not loaded or segments are incorrect
+* **Problem:** You jumped into 32-bit code but did not execute `mov ax, 0x10; mov ds, ax...` (updating segment selectors).
+* **Solution:** After `lgdt`, you must update `cs` (via a far jump) and all other segment registers (`ds`, `es`, `fs`, `gs`, `ss`).
 
-### Г. Прерывания включены, но обработчик пуст
-* **Проблема:** Сработал `sti`, пришло прерывание (например, таймер), но в IDT по этому вектору ничего нет или там мусор.
-* **Решение:** Заполни **всю** таблицу IDT дескрипторами-заглушками (хотя бы `iret`), если не хочешь обрабатывать все векторы сразу.
+### D. Interrupts enabled, but the handler is empty
+* **Problem:** `sti` was executed, an interrupt occurred (e.g., a timer), but there is nothing or just garbage at that vector in the IDT.
+* **Solution:** Fill the **entire** IDT table with stub descriptors (at least `iret`) if you do not want to handle all vectors right away.
