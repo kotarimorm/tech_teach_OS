@@ -1,112 +1,160 @@
 [bits 32]
 
 PAGE_SIZE   equ 4096
-BITMAP_SIZE equ 131072   ; 128 КБ покрывают 4 ГБ памяти (каждый бит = 4 КБ)
+BITMAP_SIZE equ 131072      ; 128 KB bitmap -> 4 GB physical memory
 
 section .bss
 align 4
+
 memory_bitmap:
-    resb BITMAP_SIZE     ; Резервируем 128 КБ неинициализированной памяти
+    resb BITMAP_SIZE
 
 section .text
+
 global pmm_init
 global pmm_alloc_page
 global pmm_free_page
 
+
 ; ---------------------------------------------------------
-; Инициализация: помечаем всю память как свободную (нули)
-; В реальной WhaleOS тебе нужно будет изначально пометить 
-; занятыми страницы, где лежит само ядро и видеопамять.
+; Clear bitmap
+; 0 = free
+; 1 = used
 ; ---------------------------------------------------------
+
 pmm_init:
     pusha
+    cld
+
     mov edi, memory_bitmap
-    mov ecx, BITMAP_SIZE / 4
     xor eax, eax
-    rep stosd            ; Быстро заполняем карту нулями по 4 байта за раз
+    mov ecx, BITMAP_SIZE / 4
+    rep stosd
+
     popa
     ret
 
+
 ; ---------------------------------------------------------
-; Выделение одной страницы (4 КБ)
-; Возвращает: EAX = физический адрес страницы (или 0, если памяти нет)
+; Allocate one 4KB page
+;
+; Return:
+;   EAX = physical address
+;   EAX = 0 if out of memory
 ; ---------------------------------------------------------
+
 pmm_alloc_page:
     push ebx
     push ecx
     push edx
+    push esi
 
-    mov ecx, BITMAP_SIZE
     mov esi, memory_bitmap
-    xor ebx, ebx         ; EBX будет хранить индекс байта в карте
+    xor ebx, ebx
 
-.find_free_byte:
-    cmp ebx, ecx
-    jge .out_of_memory   ; Дошли до конца карты, свободной памяти нет
+.find_byte:
+
+    cmp ebx, BITMAP_SIZE
+    jae .out_of_memory
 
     mov al, [esi + ebx]
-    cmp al, 0xFF         ; 0xFF (11111111b) значит все 8 страниц в байте заняты
-    jne .find_free_bit   ; Если не 0xFF, значит тут есть свободный бит (0)!
+
+    cmp al, 0FFh
+    jne .find_bit
 
     inc ebx
-    jmp .find_free_byte
+    jmp .find_byte
 
-.find_free_bit:
-    ; В AL сейчас наш байт. Ищем первый нулевой бит.
-    xor edx, edx         ; EDX = индекс бита (0-7)
+
+.find_bit:
+
+    xor edx, edx
 
 .bit_loop:
-    bt ax, dx            ; Bit Test: проверяем бит под номером DX
-    jnc .found_bit       ; Если Carry Flag = 0 (бит равен 0), мы его нашли!
+
+    mov ecx, 1
+    shl ecx, dl
+
+    test al, cl
+    jz .found
+
     inc edx
     cmp edx, 8
     jl .bit_loop
 
-.found_bit:
-    ; 1. Помечаем бит как занятый (1)
-    bts ax, dx           ; Bit Test and Set: устанавливаем бит в 1
-    mov [esi + ebx], al  ; Записываем обновленный байт обратно в карту
+    inc ebx
+    jmp .find_byte
 
-    ; 2. Вычисляем физический адрес для возврата
-    ; Формула: (Индекс_байта * 8 + Индекс_бита) * 4096
+
+.found:
+
+    ; mark page as used
+
+    or al, cl
+    mov [esi + ebx], al
+
+    ; page_index = byte_index * 8 + bit_index
+
     mov eax, ebx
-    shl eax, 3           ; EAX = EBX * 8
-    add eax, edx         ; EAX = глобальный номер страницы памяти
-    shl eax, 12          ; Сдвиг влево на 12 бит эквивалентен умножению на 4096
+    shl eax, 3
+    add eax, edx
+
+    ; convert page index -> physical address
+
+    shl eax, 12
+
     jmp .done
 
+
 .out_of_memory:
-    xor eax, eax         ; Возвращаем 0 (ошибка выделения)
+
+    xor eax, eax
+
 
 .done:
+
+    pop esi
     pop edx
     pop ecx
     pop ebx
     ret
 
+
 ; ---------------------------------------------------------
-; Освобождение страницы
-; Вход: EAX = физический адрес страницы
+; Free page
+;
+; Input:
+;   EAX = physical address
 ; ---------------------------------------------------------
+
 pmm_free_page:
     pusha
 
-    ; Проверка на выравнивание (адрес должен быть строго кратен 4096)
-    test eax, 0xFFF
-    jnz .done            ; Если младшие 12 бит не нули, это неверный адрес - игнорим
+    ; must be 4KB aligned
 
-    shr eax, 12          ; EAX = глобальный номер страницы (делим на 4096)
-    
+    test eax, 0FFFh
+    jnz .done
+
+    ; physical address -> page index
+
+    shr eax, 12
+
     mov ebx, eax
-    shr ebx, 3           ; EBX = индекс байта в карте (номер страницы / 8)
-    
-    mov edx, eax
-    and edx, 7           ; EDX = остаток от деления на 8 (индекс бита: 0-7)
+    shr ebx, 3
 
-    ; Сбрасываем нужный бит
+    mov edx, eax
+    and edx, 7
+
     mov esi, memory_bitmap
+
     mov al, [esi + ebx]
-    btr ax, dx           ; Bit Test and Reset: сбрасываем бит в 0
+
+    mov ecx, 1
+    shl ecx, dl
+
+    not cl
+    and al, cl
+
     mov [esi + ebx], al
 
 .done:
