@@ -1,500 +1,289 @@
-# OS KERNEL: COMPLETE TROUBLESHOOTING SPECIFICATION v1.0
+# OS KERNEL DEBUGGING SPECIFICATION & TROUBLESHOOTING SYSTEM v3.0
 
-This document is a structured debugging reference for low-level OS development in 32-bit x86 protected mode.  
-Each issue includes: **Symptoms → Root Cause → Diagnostics → Fix → Common Mistakes**
+This document defines a structured methodology for diagnosing, reproducing, and fixing low-level x86 kernel failures in protected mode systems.
 
----
-
-## 1. TRIPLE FAULT (CPU RESET LOOP)
-
-**Core Issue:** CPU enters exception → double fault → triple fault → hardware reset.
-
-**Symptoms:**
-- Instant reboot in QEMU/VMware
-- No visible output, sometimes black screen loop
-
-**Diagnostics:**
-- Run QEMU with:
-  ```
-  -d int,cpu_reset -no-reboot -no-shutdown
-  ```
-- Check last interrupt before reset
-
-**Root Causes:**
-- Invalid IDT pointer or limit
-- Missing exception handlers (0–31)
-- Stack corruption before interrupt entry
-- Wrong segment registers after `lgdt`
-
-**Fix:**
-- Fill entire IDT with valid stubs (at least `iret`)
-- Ensure correct IDTR:
-  ```
-  limit = sizeof(idt) * 256 - 1
-  base  = &idt
-  ```
-- Initialize stack before enabling interrupts (`esp = safe region`)
-- Ensure GDT is loaded + far jump performed
-
-**Common Mistakes:**
-- Calling `sti` too early
-- Forgetting exception stubs
-- Using invalid function pointers in IDT
+It is designed as a **debugging decision system**, not a static checklist.
 
 ---
 
-## 2. PAGE FAULT (CR2 DEBUG VECTOR)
+# 0. DEBUGGING PHILOSOPHY (READ FIRST)
 
-**Core Issue:** Invalid memory access in paging mode (0x0E exception)
+Kernel failures are NEVER random.
 
-**Symptoms:**
-- Crash on first VGA write
-- Random freezes after enabling paging
+Every crash belongs to one of four layers:
 
-**Diagnostics:**
-- Read CR2 register (faulting address)
-- Check error code (present/write/user bits)
+1. CPU State Failure (GDT / IDT / registers)
+2. Memory Model Failure (paging / stack / heap / BSS)
+3. Interrupt System Failure (PIC / IRQ / ISR / TSS)
+4. Hardware Interface Failure (VGA / ATA / PCI / serial)
 
-**Root Causes:**
-- Missing identity mapping for kernel memory
-- VGA memory (`0xB8000`) not mapped
-- Incorrect page table permissions
-- CR3 pointing to wrong directory
-
-**Fix:**
-- Identity map kernel + hardware regions
-- Always map:
-  - `0x00000000–kernel_end`
-  - `0xB8000`
-- Validate PDE/PTE flags (Present + RW)
-
-**Common Mistakes:**
-- Forgetting to flush TLB (`invlpg` / `mov cr3`)
-- Mixing physical/virtual addresses
+> If the system reboots, you lost observability — not execution.
 
 ---
 
-## 3. GDT CORRUPTION (SEGMENT FAULTS)
+# 1. TRIAGE FLOW (FIRST 60 SECONDS RULE)
 
-**Symptoms:**
-- GPF on `mov ds, ax` or far jump
-- Random crashes after `lgdt`
+Before reading logs, classify the symptom:
 
-**Root Cause:**
-- Invalid descriptor structure
-- Wrong selector indexes
-- Granularity/limit mismatch
-
-**Diagnostics:**
-- Check GDT entries in memory
-- Verify selector values (0x08, 0x10 etc.)
-
-**Fix:**
-- Null descriptor at index 0
-- Code/data segments correctly defined
-- Reload segments after `lgdt`
-
-**Common Mistakes:**
-- Forgetting far jump after `lgdt`
-- Using real-mode segment values
-
----
-
-## 4. IRQ 1 SILENT FAILURE (KEYBOARD DEAD)
-
-**Symptoms:**
-- No keyboard input
-- Single key works then stops
-
-**Diagnostics:**
-- Check PIC mask (`0x21`)
-- Verify ISR execution
-- Check EOI sent
-
-**Root Causes:**
-- IRQ1 masked
-- Missing End Of Interrupt (`0x20`)
-- No IDT entry for IRQ1
-
-**Fix:**
 ```
-out 0x20, 0x20   ; EOI
-```
-- Unmask IRQ1 (clear bit 1 → 0xFD)
-
-**Common Mistakes:**
-- Forgetting EOI
-- Using wrong PIC initialization order
-
----
-
-## 5. STACK OVERFLOW (SILENT MEMORY CORRUPTION)
-
-**Symptoms:**
-- Random crashes
-- GDT/IDT corruption
-- Weird register values
-
-**Root Cause:**
-- Stack overlaps kernel memory
-- No stack limit enforcement
-
-**Diagnostics:**
-- Monitor ESP range
-- Watch memory writes near stack base
-
-**Fix:**
-- Set stack in safe region (e.g. 0x90000)
-- Reserve at least 4–16 KB initially
-- Avoid large local arrays in kernel
-
----
-
-## 6. MULTIBOOT FAILURE
-
-**Symptoms:**
-- GRUB error: invalid multiboot header
-
-**Root Cause:**
-- Header not in first 8KB
-- Misaligned multiboot structure
-
-**Fix:**
-- Place header at binary start
-- Ensure 32-bit alignment
-- Verify linker script order
-
----
-
-## 7. INTERRUPT STORM (PIT OVERLOAD)
-
-**Symptoms:**
-- System freezes after `sti`
-- Keyboard stops responding
-
-**Root Cause:**
-- PIT frequency too high
-- ISR slower than interrupt rate
-
-**Fix:**
-- Use sane PIT (~100–1000 Hz max)
-- Minimize ISR work
-- Move heavy logic outside ISR
-
----
-
-## 8. VGA OVERFLOW / SCREEN CORRUPTION
-
-**Symptoms:**
-- Screen glitches or crash at bottom line
-
-**Root Cause:**
-- No scrolling logic
-- Writing beyond `0xB8000 + 4000 bytes`
-
-**Fix:**
-- Implement scroll (shift buffer up)
-- Clamp cursor position
-
----
-
-## 9. INTERRUPT DEADLOCK (CLI WITHOUT STI)
-
-**Symptoms:**
-- System alive but no input/output
-
-**Root Cause:**
-- `cli` executed and never restored
-- Wrong ISR exit path (`ret` instead of `iret`)
-
-**Fix:**
-- Always use `iret` in ISRs
-- Ensure interrupts re-enabled (`sti`)
-
----
-
-## 10. KERNEL DEBUG CORE (REGISTER ANALYSIS)
-
-**Best Practice:**
-Always inspect:
-- EIP (crash point)
-- ESP (stack health)
-- EFLAGS (interrupt state)
-
-**Tooling:**
-```
-qemu -s -S
-gdb → target remote localhost:1234
+IF instant reboot → TRIPLE FAULT / IDT / STACK
+IF freeze after STI → IRQ / PIC / missing handlers
+IF crash on memory write → PAGING / CR3 / identity map
+IF garbage output → DF flag / segment registers / BSS
+IF slow freeze → PIT / interrupt storm / ISR overload
 ```
 
 ---
 
-## 11–30. SYSTEM-LEVEL FAILURES (EXPANDED CLASS)
+# 2. QEMU DEBUGGING TOOLCHAIN
 
-These categories follow same structure:
-
-### MEMORY SYSTEM
-- A20 line failure → memory wraparound
-- BSS not zeroed → garbage globals
-- Paging TLB stale → outdated mappings
-- CR3 misalignment → paging crash
-
-### CPU STATE ERRORS
-- CR0/CR4 missing flags (SSE/FPU disabled)
-- Direction flag corruption (`std` not cleared)
-- Segment register mismatch after mode switch
-
-### INTERRUPT SYSTEM
-- Spurious IRQs (7/15)
-- Trap gate misuse (re-entrant interrupts)
-- TSS missing for ring transitions
-
-### HARDWARE INTERFACES
-- ATA polling deadlock (BSY stuck)
-- Serial port infinite polling
-- CMOS RTC UIP freeze
-- PCI config invalid access
-
-### MEMORY LAYOUT / LINKING
-- VMA/LMA mismatch
-- Absolute address errors (missing `org`)
-- Section overlap in linker script
-
----
-
-## FINAL RULE OF KERNEL DEBUGGING
-
-If the kernel crashes:
-
-1. Check interrupts first (IDT + PIC)
-2. Check memory second (paging + stack)
-3. Check CPU state third (GDT + CR registers)
-4. Check hardware last (ATA, VGA, PCI)
-
-**Never assume logic error before verifying hardware state.**
----
-
-## 31. DEBUGGING PIPELINE (QEMU / GDB / LOG ANALYSIS PROTOCOL)
-
-This section defines a systematic workflow for diagnosing kernel crashes using emulator logs, CPU state inspection, and deterministic reproduction.
-
----
-
-### 31.1 QEMU EXECUTION MODES (CHOOSE YOUR WEAPON)
-
-#### A. Standard debug mode (basic visibility)
+## 2.1 Standard execution
 ```
 qemu-system-i386 -no-reboot -no-shutdown
 ```
-**Use when:**
-- Early kernel bring-up
-- VGA / print debugging
+
+Use for:
+- VGA debugging
+- early boot output
 
 ---
 
-#### B. Full interrupt tracing (critical for IDT / IRQ bugs)
+## 2.2 Full interrupt tracing
 ```
 qemu-system-i386 -d int,cpu_reset,guest_errors
 ```
 
-**What it reveals:**
-- Every interrupt vector fired
-- PIC / APIC behavior
-- Exception chaining before crash
-
-**Key pattern to look for:**
-- `IRQ0` spam → PIT misconfig
-- `#GP` → segmentation error
-- `#PF` → paging or stack issue
-- `Triple fault` → IDT or stack corruption
+Shows:
+- every IRQ
+- exception chaining
+- triple fault path
 
 ---
 
-#### C. Kernel crash forensic mode (best for triple faults)
+## 2.3 Memory / paging debugging
 ```
-qemu-system-i386 -d int,cpu_reset -no-reboot -no-shutdown -D log.txt
+qemu-system-i386 -d mmu
 ```
 
-**What to check in log:**
-- Last executed EIP before reset
-- Last valid interrupt vector
-- Whether CPU reached IDT handler or failed earlier
+Shows:
+- page faults
+- address translation failures
 
 ---
 
-#### D. GDB DEBUG MODE (HARDCORE TRACE)
+## 2.4 Full forensic dump
+```
+qemu-system-i386 -d int,cpu_reset,mmu,guest_errors -D log.txt
+```
+
+Use when system is fully dead.
+
+---
+
+## 2.5 GDB live debugging
 ```
 qemu-system-i386 -s -S
-```
-
-Then:
-```
 gdb
 target remote localhost:1234
 ```
 
-**Key commands:**
+Key commands:
 ```
-info registers     ; full CPU state
-x/10i $eip         ; instructions at crash point
-x/32x $esp         ; stack inspection
-info idt           ; (if supported via stub tooling)
-```
-
----
-
-### 31.2 CRASH PATTERN RECOGNITION (VERY IMPORTANT)
-
-#### PATTERN 1: INSTANT REBOOT LOOP
-```
-→ no output
-→ machine restarts immediately
-```
-**Meaning:**
-- Triple fault
-- Invalid IDT or stack not initialized
-
----
-
-#### PATTERN 2: HANG AFTER "sti"
-```
-kernel boots → sti → freeze
-```
-**Meaning:**
-- IRQ enabled but handlers missing
-- PIC sending interrupts into garbage vectors
-
----
-
-#### PATTERN 3: VGA OUTPUT THEN FREEZE
-```
-prints 1–3 chars → stops
-```
-**Meaning:**
-- Stack overflow
-- Page fault on VGA memory
-- ISR corruption after first interrupt
-
----
-
-#### PATTERN 4: RANDOM GARBAGE OUTPUT
-```
-??????? or broken characters
-```
-**Meaning:**
-- DF (direction flag) corrupted
-- Wrong segment register (DS/ES invalid)
-- Memory not zero-initialized (.bss issue)
-
----
-
-#### PATTERN 5: CRASH ON FIRST MEMORY ACCESS
-```
-mov [0xB8000], al → crash
-```
-**Meaning:**
-- Paging not mapped
-- Identity mapping missing
-- CR3 incorrect
-
----
-
-### 31.3 GOLDEN DEBUG FLAGS (QEMU)
-
-#### CPU + interrupt visibility
-```
--d int,cpu_reset,guest_errors
-```
-
-#### Memory / paging issues
-```
--d mmu
-```
-
-#### IO port debugging (ATA, PIC, VGA issues)
-```
--d in_asm,out_asm
-```
-
-#### Full forensic trace (heavy but complete)
-```
--d int,cpu_reset,mmu,guest_errors -D full.log
-```
-
----
-
-### 31.4 DEBUGGING HEURISTIC (REAL ENGINEERING FLOW)
-
-When kernel breaks:
-
-#### STEP 1 — CHECK LAST CPU STATE
-- EIP → where it died
-- CS:EIP → code segment correctness
-- EFLAGS → IF bit (interrupt state)
-
----
-
-#### STEP 2 — CHECK INTERRUPT PATH
-Ask:
-- Did interrupt happen?
-- Did IDT entry exist?
-- Did ISR return with `iret`?
-
----
-
-#### STEP 3 — CHECK MEMORY MODEL
-Ask:
-- Is paging enabled?
-- Is identity map active?
-- Is stack inside mapped memory?
-
----
-
-#### STEP 4 — CHECK HARDWARE LAYER
-Ask:
-- Did PIC send IRQ?
-- Did ATA respond?
-- Is VGA memory valid?
-
----
-
-### 31.5 MOST IMPORTANT RULE (REAL OSDEV TRUTH)
-
-> “If the CPU resets, you didn’t lose execution — you lost visibility.”
-
-Triple fault is never random — it is always:
-- missing handler
-- broken stack
-- or invalid descriptor chain
-
----
-
-### 31.6 PRO TIP: REPRODUCIBLE CRASH TRACING
-
-To isolate bugs deterministically:
-
-1. Freeze execution:
-```
-qemu -S -s
-```
-
-2. Step instruction-by-instruction:
-```
+info registers
+x/10i $eip
+x/32x $esp
 si
 ```
 
-3. Watch:
-- stack evolution
-- IDT jumps
-- register drift
+---
+
+# 3. CRITICAL CRASH PATTERNS
+
+## 3.1 TRIPLE FAULT LOOP
+Symptoms:
+- instant reboot
+- no output
+
+Causes:
+- invalid IDT
+- missing exception handlers
+- broken stack
+- invalid segment registers
+
+Fix priority:
+1. IDT validity
+2. stack pointer
+3. GDT reload
+4. all ISR stubs exist
 
 ---
 
-### FINAL INSIGHT
+## 3.2 STI FREEZE
+Symptoms:
+- kernel stops after enabling interrupts
 
-If logs are unclear:
+Causes:
+- IRQ enabled but handlers missing
+- PIC misconfigured
+- missing EOI
 
-👉 assume earlier system corruption (not the last instruction)
+Fix:
+- verify IDT entries 0–15
+- unmask IRQ lines
+- ensure `out 0x20, 0x20`
 
-Kernel debugging is not “finding bugs”  
-it is **reconstructing broken CPU state history**
+---
+
+## 3.3 VGA WRITE CRASH
+Symptoms:
+- crash on `0xB8000` write
+
+Causes:
+- paging not mapped
+- identity map missing
+
+Fix:
+- map VGA region
+- verify CR3
+
+---
+
+## 3.4 RANDOM GARBAGE OUTPUT
+Symptoms:
+- broken characters / corruption
+
+Causes:
+- direction flag set (`std`)
+- uninitialized BSS
+- wrong DS/ES selectors
+
+Fix:
+- enforce `cld`
+- zero `.bss`
+- reload segments after `lgdt`
+
+---
+
+# 4. SYSTEM STATE MODEL
+
+Kernel must be validated in layers:
+
+```
+BOOTLOADER STATE
+→ GDT LOADED
+→ IDT INITIALIZED
+→ PAGING ENABLED
+→ INTERRUPTS ENABLED
+→ DRIVERS ACTIVE
+```
+
+Failure at each layer maps to specific bug class.
+
+---
+
+# 5. QEMU LOG INTERPRETATION RULES
+
+## 5.1 CRASH KEYWORDS
+
+| Log Output | Meaning |
+|----------|--------|
+| #GP | segmentation fault |
+| #PF | paging error |
+| #DF | double fault |
+| triple fault | IDT or stack fatal failure |
+
+---
+
+## 5.2 PATTERN INTERPRETATION
+
+### Pattern: "CPU RESET"
+→ triple fault occurred
+
+### Pattern: "IRQ spam"
+→ PIC misconfigured or PIT too fast
+
+### Pattern: "no interrupt ever appears"
+→ PIC fully masked or STI never executed
+
+---
+
+# 6. GOLDEN RULES OF DEBUGGING
+
+## RULE 1:
+Always check interrupts before memory.
+
+## RULE 2:
+Always check memory before hardware.
+
+## RULE 3:
+If CPU resets → assume IDT is broken until proven otherwise.
+
+## RULE 4:
+Never trust execution flow after undefined behavior.
+
+---
+
+# 7. FAILURE CHAINS (REAL SYSTEM BEHAVIOR)
+
+Kernel bugs are rarely isolated:
+
+```
+missing EOI
+→ IRQ freeze
+→ interrupt backlog
+→ stack overflow
+→ triple fault
+```
+
+```
+no identity mapping
+→ VGA crash
+→ page fault
+→ double fault
+→ reset
+```
+
+```
+wrong GDT
+→ segment fault
+→ ISR corruption
+→ invalid return
+```
+
+---
+
+# 8. DEBUGGING TOOL MAPPING
+
+| Symptom | Tool | Flag |
+|--------|------|------|
+| reboot loop | qemu log | -d cpu_reset |
+| irq issue | interrupt trace | -d int |
+| memory crash | paging trace | -d mmu |
+| IO freeze | full trace | -d guest_errors |
+
+---
+
+# 9. LOW LEVEL ANTI-PATTERNS
+
+NEVER:
+- use `ret` in ISR
+- enable paging without identity map
+- assume interrupts disabled after CLI
+- write VGA before mapping memory
+- ignore stack alignment
+
+---
+
+# 10. DIAGNOSTIC HEURISTIC ENGINE
+
+When kernel fails:
+
+STEP 1 → check IDT
+STEP 2 → check stack
+STEP 3 → check paging
+STEP 4 → check PIC / IRQ
+STEP 5 → check hardware IO
+
+If unsure → assume memory corruption first.
+
+---
