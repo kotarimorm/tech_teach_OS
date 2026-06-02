@@ -1,14 +1,14 @@
 ; drivers/kbd_buffer.asm
-; Кольцевой буфер для клавиатуры (256 байт)
+; Circular buffer for keyboard (256 bytes)
 
 global kbd_buf_push
 global kbd_buf_pop
 
 section .bss
-    ; Резервируем 256 байт под сам буфер
+    ; Reserve 256 bytes for the buffer itself
     kbd_buffer resb 256
     
-    ; Указатели на голову (запись) и хвост (чтение)
+    ; Pointers to head (write) and tail (read)
     kbd_head resd 1
     kbd_tail resd 1
 
@@ -16,28 +16,28 @@ section .text
 
 ; ---------------------------------------------------------
 ; kbd_buf_push
-; Добавляет скан-код в буфер. ВЫЗЫВАЕТСЯ ТОЛЬКО ИЗ ПРЕРЫВАНИЯ!
-; Вход: AL = скан-код
+; Adds scan code to buffer. CALLED ONLY FROM INTERRUPT!
+; Input: AL = scan code
 ; ---------------------------------------------------------
 kbd_buf_push:
     push ebx
     push ecx
 
-    mov ebx, [kbd_head]       ; Берем текущий индекс записи
+    mov ebx, [kbd_head]       ; Get current write index
     
-    ; Вычисляем следующий индекс (head + 1)
+    ; Calculate next index (head + 1)
     mov ecx, ebx
     inc ecx
-    and ecx, 255              ; Магия оптимизации: ecx = ecx % 256
+    and ecx, 255              ; Optimization magic: ecx = ecx % 256
     
-    ; Проверка на переполнение: если следующий индекс = хвосту, буфер полон
+    ; Overflow check: if next index == tail, buffer is full
     cmp ecx, [kbd_tail]
-    je .drop                  ; Если полон — просто выбрасываем скан-код
+    je .drop                  ; If full - just drop scan code
 
-    ; Записываем байт в память
+    ; Write byte to memory
     mov byte [kbd_buffer + ebx], al
     
-    ; Сдвигаем голову
+    ; Advance head
     mov [kbd_head], ecx
 
 .drop:
@@ -47,23 +47,23 @@ kbd_buf_push:
 
 ; ---------------------------------------------------------
 ; kbd_buf_pop
-; Читает скан-код из буфера. Вызывается из основного цикла kmain.
-; Выход: EAX = скан-код, или EAX = -1 (0xFFFFFFFF), если буфер пуст
+; Reads scan code from buffer. Called from kmain main loop.
+; Output: EAX = scan code, or EAX = -1 (0xFFFFFFFF) if buffer is empty
 ; ---------------------------------------------------------
 kbd_buf_pop:
     push ebx
 
-    mov ebx, [kbd_tail]       ; Берем текущий индекс чтения
+    mov ebx, [kbd_tail]       ; Get current read index
     
-    ; Проверка на пустоту: если хвост догнал голову — читать нечего
+    ; Emptiness check: if tail catches up to head - nothing to read
     cmp ebx, [kbd_head]
     je .empty
 
-    ; Читаем байт из буфера
-    xor eax, eax              ; Очищаем EAX, чтобы старшие биты были нулями
+    ; Read byte from buffer
+    xor eax, eax              ; Clear EAX so higher bits are zero
     mov al, byte [kbd_buffer + ebx]
     
-    ; Сдвигаем хвост
+    ; Advance tail
     inc ebx
     and ebx, 255              ; ebx = ebx % 256
     mov [kbd_tail], ebx
@@ -72,6 +72,6 @@ kbd_buf_pop:
     ret
 
 .empty:
-    mov eax, -1               ; Возвращаем -1, сигнализируя об отсутствии данных
+    mov eax, -1               ; Return -1 signaling no data available
     pop ebx
     ret
