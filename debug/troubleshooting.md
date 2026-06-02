@@ -1,4 +1,4 @@
-# OS KERNEL: COMPLETE TROUBLESHOOTING SPECIFICATION v2.0
+# OS KERNEL: COMPLETE TROUBLESHOOTING SPECIFICATION v1.0
 
 This document is a structured debugging reference for low-level OS development in 32-bit x86 protected mode.  
 Each issue includes: **Symptoms → Root Cause → Diagnostics → Fix → Common Mistakes**
