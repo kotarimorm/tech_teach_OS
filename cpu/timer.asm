@@ -2,34 +2,69 @@
 
 PIT_COMMAND_PORT equ 0x43
 PIT_CHANNEL_0    equ 0x40
-PIT_BASE_FREQ    equ 1193180 ; Базовая аппаратная частота PIT в Гц
+PIT_BASE_FREQ    equ 1193180
 
 global init_timer
 
-; Функция инициализации таймера (IRQ0)
-; Вход: EAX = желаемая частота в Гц (например, 100 для переключения контекста 100 раз в сек)
+; ----------------------------------------------------------
+; init_timer
+;
+; Input:
+;   EAX = desired frequency (Hz)
+;
+; Examples:
+;   mov eax, 100
+;   call init_timer
+;
+; Valid range:
+;   19 Hz .. 1193180 Hz
+; ----------------------------------------------------------
+
 init_timer:
     pusha
 
-    ; Вычисляем делитель: Делитель = Базовая частота / Желаемая частота
-    mov ecx, PIT_BASE_FREQ
-    xor edx, edx      ; Обнуляем EDX для корректного деления
-    xchg eax, ecx     ; Теперь EAX = 1193180, ECX = Желаемая частота
-    div ecx           ; EAX = EAX / ECX. В EAX теперь лежит делитель
-    mov ebx, eax      ; Сохраняем делитель в EBX
+    ; Prevent divide-by-zero
+    test eax, eax
+    jz .done
 
-    ; Отправляем конфигурационный байт в Command Port
-    ; 0x36 = Канал 0, доступ младший/старший байт, Режим 3 (Генератор меандра), Бинарный формат
+    ; divisor = PIT_BASE_FREQ / frequency
+    mov ecx, eax
+
+    mov eax, PIT_BASE_FREQ
+    xor edx, edx
+    div ecx
+
+    ; PIT divisor must fit in 16 bits
+    cmp eax, 65535
+    jbe .divisor_ok
+
+    mov eax, 65535
+
+.divisor_ok:
+
+    mov bx, ax
+
+    ; Command byte:
+    ; Channel 0
+    ; Lobyte/Hibyte access
+    ; Mode 3 (Square Wave)
+    ; Binary counter
+
+    mov dx, PIT_COMMAND_PORT
     mov al, 0x36
-    out PIT_COMMAND_PORT, al
+    out dx, al
 
-    ; Отправляем младший байт делителя (Low byte)
+    ; Low byte
+
+    mov dx, PIT_CHANNEL_0
     mov al, bl
-    out PIT_CHANNEL_0, al
+    out dx, al
 
-    ; Отправляем старший байт делителя (High byte)
+    ; High byte
+
     mov al, bh
-    out PIT_CHANNEL_0, al
+    out dx, al
 
+.done:
     popa
     ret
