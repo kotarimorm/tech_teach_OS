@@ -8,6 +8,7 @@
 ;   ecx - byte count
 memcpy:
     pusha
+    cld                     ; Clear direction flag to ensure forward copy
 
     ; copy by dwords (4 bytes) for speed
     mov eax, ecx
@@ -29,6 +30,7 @@ memcpy:
 ;   ecx - byte count
 memset:
     pusha
+    cld                     ; Clear direction flag to ensure forward fill
 
     ; duplicate AL to entire EAX (0xAB -> 0xABABABAB)
     mov ah, al
