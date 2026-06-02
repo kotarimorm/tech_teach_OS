@@ -1,26 +1,47 @@
-; drivers/manager.asm
+; ============================================================
+; Simple driver manager
+; Calls all driver init functions from a table
+; NASM x86
+; ============================================================
+
 extern kbd_init
 extern kbd_handle
 extern timer_init
 
-section .data
-; Таблица драйверов: [init_addr, handle_addr]
-driver_table:
-    dd kbd_init, kbd_handle
-    dd timer_init, 0         ; У таймера нет обработчика нажатий
-    
-section .text
 global init_all_drivers
 
+section .data
+
+; ------------------------------------------------------------
+; Driver table format:
+; [init_function, handle_function]
+; handle_function may be 0 if not used
+; Table ends with NULL entry
+; ------------------------------------------------------------
+driver_table:
+    dd kbd_init,  kbd_handle
+    dd timer_init, 0
+    dd 0, 0
+
+
+section .text
+
+; ------------------------------------------------------------
+; init_all_drivers
+; Calls all driver init functions in table
+; ------------------------------------------------------------
 init_all_drivers:
-    mov edi, driver_table
-    mov ecx, 2               ; Количество драйверов
+    mov esi, driver_table
+
 .loop:
-    mov eax, [edi]           ; Берем адрес init
-    cmp eax, 0
-    je .next
-    call eax                 ; Вызываем init
-.next:
-    add edi, 8               ; Переходим к следующей записи (2 * 4 байта)
-    loop .loop
+    mov eax, [esi]          ; load init function pointer
+    cmp eax, 0              ; end of table
+    je .done
+
+    call eax                ; call init function
+
+    add esi, 8              ; next entry (2 dwords)
+    jmp .loop
+
+.done:
     ret
