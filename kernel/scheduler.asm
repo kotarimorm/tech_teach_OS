@@ -6,8 +6,8 @@ next_task_esp    dd 0
 
 timer_handler_multitasking:
     ; 1. Save the context of the current task
-    pusha                   ; Save all general-purpose registers
-    push ds                 ; Also highly recommended to save data segments
+    pusha                    ; Save all general-purpose registers
+    push ds                  ; Also highly recommended to save data segments
     push es
     push fs
     push gs
@@ -22,7 +22,8 @@ timer_handler_multitasking:
     mov [eax], esp          
 
     ; 4. Switch to the next task's stack
-    mov esp, [next_task_esp] 
+    mov eax, [next_task_esp] 
+    mov esp, [eax]
 
     ; (Optional: dynamic GDT/TSS ESP0 update would go here for Ring 3)
 
