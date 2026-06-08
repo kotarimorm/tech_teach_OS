@@ -20,6 +20,17 @@
 ;   - Do not send EOI for CPU exceptions.
 ;   - Keep early ISR code simple and observable.
 ; ============================================================
+; TODO:
+;   - Add separate handlers for exceptions with error codes.
+;   - Add exception number reporting.
+;   - Add register dump output.
+;   - Add page fault CR2 reporting.
+;   - Add safe panic integration.
+;
+; WARNING:
+;   CPU exceptions and hardware IRQs are different.
+;   Do not send PIC EOI for CPU exceptions.
+;   Do not return from fatal exceptions unless recovery is implemented.
 [bits 32]
 
 ; Safe Macro: preserves EAX register on stack while sending EOI
