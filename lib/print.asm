@@ -1,3 +1,20 @@
+; ============================================================
+; File: lib/print.asm
+; Topic: Print Helpers
+; Type: Utility snippet
+;
+; Purpose:
+;   Provides a helper for printing a byte as hexadecimal text.
+;
+; Assumes:
+;   - print_char is implemented elsewhere
+;   - Calling convention matches the expected stack arguments
+;   - Output position handling is compatible with print_char
+;
+; Notes:
+;   - This is a small helper, not a complete console system.
+;   - Adapt calling convention and output backend to your own kernel.
+; ============================================================
 global print_hex_byte
 extern print_char
 
