@@ -23,6 +23,17 @@
 ;   - This is useful for early text input experiments.
 ;   - Adapt scancode translation to your own keyboard layer.
 ; ============================================================
+; TODO:
+;   - Provide or include the scancode_to_ascii table.
+;   - Add Shift/Ctrl/Alt state tracking.
+;   - Add CapsLock handling.
+;   - Add extended E0 key support.
+;   - Add key release event support if needed.
+;   - Decide whether the buffer stores ASCII, scancodes, or key events.
+;
+; WARNING:
+;   This is an early keyboard input example.
+;   It is not a complete keyboard driver or layout system.
 [bits 32]
 
 PS2_DATA_PORT equ 0x60
