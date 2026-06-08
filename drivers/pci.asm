@@ -1,8 +1,21 @@
 ; ============================================================
-; PURE PCI SCANNER (NO C, NO EXTERNAL CALLS)
-; NASM x86, CF8/CFC
+; File: drivers/pci.asm
+; Topic: PCI Scanning
+; Type: Reference snippet
+;
+; Purpose:
+;   Demonstrates basic PCI configuration space scanning via CF8/CFC.
+;
+; Assumes:
+;   - x86 PCI configuration mechanism #1
+;   - Port I/O access is available
+;   - Caller provides any desired logging/storage
+;
+; Notes:
+;   - This scans devices but does not initialize drivers.
+;   - Multifunction and capability parsing may need expansion.
+;   - Use this as a discovery/reference example.
 ; ============================================================
-
 section .text
 global pci_scan_bus
 
