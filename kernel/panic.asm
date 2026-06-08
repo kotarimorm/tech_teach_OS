@@ -1,4 +1,22 @@
-; core/panic.asm
+; ============================================================
+; File: kernel/panic.asm
+; Topic: Kernel Panic
+; Type: Debug helper
+;
+; Purpose:
+;   Prints a panic message directly to VGA memory and halts.
+;
+; Assumes:
+;   - 32-bit protected mode
+;   - VGA text memory is available at 0xB8000
+;   - ESI points to a null-terminated panic message
+;   - Data selector 0x10 is valid
+;
+; Notes:
+;   - This is intended for early fatal error debugging.
+;   - It does not recover or return.
+;   - It intentionally disables interrupts.
+; ============================================================
 global panic
 
 section .text
