@@ -20,6 +20,17 @@
 ;   - Extend mappings before moving the kernel, stack, or heap.
 ;   - Make sure VGA/MMIO regions are mapped if your code uses them.
 ; ============================================================
+; TODO:
+;   - Add support for mapping arbitrary physical pages.
+;   - Add support for unmapping pages.
+;   - Add page fault diagnostics.
+;   - Add separate kernel/user permission examples.
+;   - Make the mapped memory range explicit.
+;
+; WARNING:
+;   This example only demonstrates early identity paging.
+;   If the kernel, stack, VGA memory, or page tables are outside
+;   the mapped range, enabling paging may immediately crash.
 section .bss
 align 4096
 
