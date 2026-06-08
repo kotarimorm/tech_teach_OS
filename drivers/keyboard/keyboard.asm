@@ -1,14 +1,29 @@
+; ============================================================
+; File: drivers/keyboard/keyboard.asm
+; Topic: PS/2 Keyboard
+; Type: Reference snippet
+;
+; Purpose:
+;   Demonstrates a basic PS/2 keyboard IRQ1 handler.
+;
+; Assumes:
+;   - PIC is remapped
+;   - IDT has a valid IRQ1 entry
+;   - Keyboard IRQ is unmasked
+;   - kbd_buf_push is available
+;   - scancode_to_ascii table is provided
+;
+; WARNING:
+;   This is not a complete keyboard driver.
+;   It does not implement full key state tracking.
+;   It does not fully support Shift/Ctrl/Alt/CapsLock layouts.
+;   Extended E0 keys are intentionally minimal.
+;
+; Notes:
+;   - This is useful for early text input experiments.
+;   - Adapt scancode translation to your own keyboard layer.
+; ============================================================
 [bits 32]
-
-; ============================================================
-; PS/2 Keyboard IRQ1 Handler
-; Scancode Set 1
-; Supports:
-;   - Make codes
-;   - Key release filtering
-;   - Extended E0 prefix detection
-;   - Mouse packet draining
-; ============================================================
 
 PS2_DATA_PORT equ 0x60
 PS2_STAT_PORT equ 0x64
