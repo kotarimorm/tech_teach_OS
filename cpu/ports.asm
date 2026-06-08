@@ -1,3 +1,20 @@
+; ============================================================
+; File: cpu/ports.asm
+; Topic: I/O Ports
+; Type: Utility macros
+;
+; Purpose:
+;   Provides small NASM macros for port-mapped I/O access.
+;
+; Assumes:
+;   - x86 environment with port I/O support
+;   - Caller knows the target hardware port
+;
+; Notes:
+;   - These macros are intentionally minimal.
+;   - Port access can hang or misconfigure hardware if used incorrectly.
+;   - Use only with documented ports or emulator experiments.
+; ============================================================
 [bits 32]
 
 ; ----------------------------------------------------------
