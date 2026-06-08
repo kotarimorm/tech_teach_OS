@@ -21,6 +21,18 @@
 ;   - Treat this as a context-switching experiment only.
 ;   - Adapt heavily before using in a real kernel.
 ; ============================================================
+; TODO:
+;   - Define a real task structure.
+;   - Add task initialization helpers.
+;   - Validate current_task_esp before saving context.
+;   - Validate next_task_esp before switching stacks.
+;   - Add support for an idle task.
+;   - Add TSS handling for privilege transitions.
+;   - Save and restore FPU/SSE state if needed.
+;
+; WARNING:
+;   This is only a context-switching experiment.
+;   Calling it before task state is initialized can crash immediately.
 [bits 32]
 
 ; Pointers to the current and next task context structures
