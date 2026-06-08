@@ -1,7 +1,18 @@
 ; ============================================================
-; Simple driver manager
-; Calls all driver init functions from a table
-; NASM x86
+; File: drivers/manager/manager.asm
+; Topic: Driver Manager
+; Type: Concept snippet
+;
+; Purpose:
+;   Demonstrates a simple table-based driver initialization flow.
+;
+; Assumes:
+;   - Driver init functions are valid callable addresses
+;   - Driver table entries follow the expected format
+;
+; Notes:
+;   - This is a design idea, not a complete driver framework.
+;   - Extend the table format if you need names, dependencies, or state.
 ; ============================================================
 
 extern kbd_init
