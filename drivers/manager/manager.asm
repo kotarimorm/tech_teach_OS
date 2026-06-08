@@ -14,6 +14,15 @@
 ;   - This is a design idea, not a complete driver framework.
 ;   - Extend the table format if you need names, dependencies, or state.
 ; ============================================================
+; TODO:
+;   - Add driver names or IDs to the table.
+;   - Add initialization status reporting.
+;   - Add dependency ordering if needed.
+;   - Add failure handling for driver init routines.
+;
+; WARNING:
+;   This is a simple driver initialization concept.
+;   It is not a full driver manager.
 
 extern kbd_init
 extern kbd_handle
