@@ -16,6 +16,14 @@
 ;   - Overlapping memcpy regions are not handled like memmove.
 ;   - Intended for early kernel/runtime experiments.
 ; ============================================================
+; TODO:
+;   - Add memmove for overlapping memory regions.
+;   - Add optional debug checks for null pointers.
+;   - Add tests inside a controlled kernel/emulator environment.
+;
+; WARNING:
+;   memcpy assumes non-overlapping regions.
+;   No bounds checking is performed.
 
 
 ; memcpy
