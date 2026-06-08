@@ -1,3 +1,29 @@
+; ============================================================
+; File: drivers/disk/ATA.asm
+; Topic: ATA PIO Disk Access
+; Type: Reference snippet
+;
+; Purpose:
+;   Demonstrates reading one sector using ATA PIO.
+;
+; Assumes:
+;   - Primary ATA bus
+;   - Master drive
+;   - LBA28 addressing
+;   - Destination buffer is valid and writable
+;   - ES:EDI points to the destination for string I/O
+;
+; WARNING:
+;   This is a minimal ATA example.
+;   It does not provide full error handling.
+;   It does not implement timeouts.
+;   It does not support all controllers or storage devices.
+;
+; Notes:
+;   - Add BSY/DRQ/ERR/DF checks before serious use.
+;   - Add timeouts to avoid infinite waits on broken hardware.
+;   - Prefer emulator testing before real hardware experiments.
+; ============================================================
 [bits 32]
 
 ; ============================================================
