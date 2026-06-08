@@ -1,3 +1,25 @@
+; ============================================================
+; File: cpu/paging.asm
+; Topic: Paging
+; Type: Reference snippet
+;
+; Purpose:
+;   Sets up a minimal identity-mapped paging layout.
+;
+; Assumes:
+;   - 32-bit protected mode
+;   - Page directory and page table are identity accessible
+;   - Kernel, stack, and early data are located in mapped memory
+;
+; WARNING:
+;   This is a minimal paging example.
+;   It does not implement a complete virtual memory manager.
+;   It only demonstrates the basic mechanism.
+;
+; Notes:
+;   - Extend mappings before moving the kernel, stack, or heap.
+;   - Make sure VGA/MMIO regions are mapped if your code uses them.
+; ============================================================
 section .bss
 align 4096
 
