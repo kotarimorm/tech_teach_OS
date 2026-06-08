@@ -17,6 +17,17 @@
 ;   - No bounds checking is implemented.
 ;   - Good for early debug output, not a full terminal.
 ; ============================================================
+; TODO:
+;   - Add newline handling.
+;   - Add scrolling.
+;   - Add cursor movement.
+;   - Add bounds checking.
+;   - Add color selection helpers.
+;   - Add decimal and hexadecimal print helpers.
+;
+; WARNING:
+;   This is early debug output only.
+;   It is not a complete terminal implementation.
 [bits 32]
 
 VIDEO_MEMORY equ 0xB8000
