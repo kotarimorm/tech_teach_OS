@@ -14,6 +14,14 @@
 ;   - These are stubs, not complete drivers.
 ;   - Replace or extend them for your own kernel design.
 ; ============================================================
+; TODO:
+;   - Replace stubs with real driver initialization logic.
+;   - Decide which drivers are interrupt-driven.
+;   - Decide which drivers expose polling APIs.
+;   - Add clear input/output contracts for handlers.
+;
+; WARNING:
+;   These are placeholder routines for driver manager experiments.
 
 global kbd_init
 global kbd_handle
