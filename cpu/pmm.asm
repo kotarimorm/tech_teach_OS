@@ -1,3 +1,27 @@
+; ============================================================
+; File: cpu/pmm.asm
+; Topic: Physical Memory Manager
+; Type: Reference snippet
+;
+; Purpose:
+;   Demonstrates a simple bitmap-based physical page allocator.
+;
+; Assumes:
+;   - 32-bit protected mode
+;   - 4 KiB page size
+;   - Caller provides a safe memory environment
+;
+; WARNING:
+;   This is a learning PMM.
+;   It does not parse BIOS/E820/UEFI memory maps.
+;   It does not automatically reserve kernel memory.
+;   It does not automatically reserve the bitmap itself.
+;   It may treat reserved or device memory as free unless adapted.
+;
+; Notes:
+;   - Mark kernel, stack, modules, MMIO, and reserved regions as used.
+;   - Do not use this unchanged in a real kernel memory subsystem.
+; ============================================================
 [bits 32]
 
 PAGE_SIZE   equ 4096
