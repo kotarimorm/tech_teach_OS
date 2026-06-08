@@ -1,3 +1,21 @@
+; ============================================================
+; File: interrupts/idt.asm
+; Topic: Interrupt Descriptor Table
+; Type: Reference snippet
+;
+; Purpose:
+;   Provides basic IDT storage, loading, and gate setup logic.
+;
+; Assumes:
+;   - 32-bit protected mode
+;   - Kernel code selector is 0x08
+;   - Handler addresses are valid and reachable
+;
+; Notes:
+;   - Empty IDT entries will crash if triggered.
+;   - Install valid handlers before enabling interrupts.
+;   - Enable interrupts only after IDT, PIC, and stack are ready.
+; ============================================================
 [bits 32]
 
 section .data
