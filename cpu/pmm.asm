@@ -22,6 +22,15 @@
 ;   - Mark kernel, stack, modules, MMIO, and reserved regions as used.
 ;   - Do not use this unchanged in a real kernel memory subsystem.
 ; ============================================================
+; TODO:
+;   - Parse a real BIOS/E820/UEFI memory map.
+;   - Mark kernel memory as used.
+;   - Mark stack memory as used.
+;   - Mark boot modules as used.
+;   - Mark the PMM bitmap itself as used.
+;   - Mark MMIO and reserved regions as used.
+;   - Add bounds checks in pmm_free_page.
+;   - Avoid returning physical page 0 as a normal allocation.
 [bits 32]
 
 PAGE_SIZE   equ 4096
