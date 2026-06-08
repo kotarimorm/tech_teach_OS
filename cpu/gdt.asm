@@ -1,3 +1,21 @@
+; ============================================================
+; File: cpu/gdt.asm
+; Topic: Global Descriptor Table
+; Type: Reference snippet
+;
+; Purpose:
+;   Defines and loads a minimal flat 32-bit kernel GDT.
+;
+; Assumes:
+;   - 32-bit protected mode environment
+;   - Kernel code selector is 0x08
+;   - Kernel data selector is 0x10
+;   - Valid stack is already available
+;
+; Notes:
+;   - This is a learning/reference implementation.
+;   - Adapt selectors and memory layout to your own kernel.
+; ============================================================
 [bits 32]
 
 section .data
