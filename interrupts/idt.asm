@@ -16,6 +16,15 @@
 ;   - Install valid handlers before enabling interrupts.
 ;   - Enable interrupts only after IDT, PIC, and stack are ready.
 ; ============================================================
+; TODO:
+;   - Add an IDT initialization routine.
+;   - Install default safe handlers for all 256 vectors.
+;   - Add helpers for interrupt gates and trap gates.
+;   - Add DPL configuration for user-callable interrupts.
+;
+; WARNING:
+;   Empty IDT entries can cause triple faults if triggered.
+;   Always install valid handlers before enabling interrupts.
 [bits 32]
 
 section .data
