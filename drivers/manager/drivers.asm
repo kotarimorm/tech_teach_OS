@@ -1,6 +1,18 @@
 ; ============================================================
-; Simple driver stubs (keyboard + timer)
-; NASM x86
+; File: drivers/manager/drivers.asm
+; Topic: Driver Stubs
+; Type: Concept snippet
+;
+; Purpose:
+;   Provides simple placeholder driver init/handler routines.
+;
+; Assumes:
+;   - Used as a concept for driver registration experiments
+;   - Real driver logic is implemented elsewhere
+;
+; Notes:
+;   - These are stubs, not complete drivers.
+;   - Replace or extend them for your own kernel design.
 ; ============================================================
 
 global kbd_init
