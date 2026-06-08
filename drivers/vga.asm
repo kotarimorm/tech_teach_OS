@@ -1,3 +1,22 @@
+; ============================================================
+; File: drivers/vga.asm
+; Topic: VGA Text Mode
+; Type: Reference snippet
+;
+; Purpose:
+;   Provides minimal VGA text mode output helpers.
+;
+; Assumes:
+;   - VGA text buffer is mapped at 0xB8000
+;   - 80x25 text mode
+;   - Writable identity mapping if paging is enabled
+;
+; Notes:
+;   - No scrolling is implemented.
+;   - No newline handling is implemented.
+;   - No bounds checking is implemented.
+;   - Good for early debug output, not a full terminal.
+; ============================================================
 [bits 32]
 
 VIDEO_MEMORY equ 0xB8000
