@@ -16,6 +16,17 @@
 ;   - Multifunction and capability parsing may need expansion.
 ;   - Use this as a discovery/reference example.
 ; ============================================================
+; TODO:
+;   - Store discovered devices in a table.
+;   - Decode vendor ID and device ID.
+;   - Decode class and subclass names.
+;   - Detect multifunction devices properly.
+;   - Add BAR reading helpers.
+;   - Add PCI capability list parsing.
+;
+; WARNING:
+;   This only scans PCI configuration space.
+;   It does not initialize or drive PCI devices.
 section .text
 global pci_scan_bus
 
