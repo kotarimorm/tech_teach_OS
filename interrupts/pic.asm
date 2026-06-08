@@ -16,6 +16,14 @@
 ;   - Mask unused IRQ lines until handlers are installed.
 ;   - Enable interrupts only after IDT and handlers are valid.
 ; ============================================================
+; TODO:
+;   - Add helpers to mask and unmask individual IRQ lines.
+;   - Add helper for sending EOI.
+;   - Preserve and restore previous PIC masks if needed.
+;   - Document which IRQ lines are expected to be enabled.
+;
+; WARNING:
+;   Enabling IRQs before handlers are installed can crash the kernel.
 [bits 32]
 
 PIC1_COMMAND equ 0x20
