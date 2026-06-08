@@ -1,3 +1,26 @@
+; ============================================================
+; File: kernel/scheduler.asm
+; Topic: Scheduler Experiment
+; Type: Experimental snippet
+;
+; Purpose:
+;   Demonstrates the rough idea of saving one task context and
+;   restoring another during a timer interrupt.
+;
+; Assumes:
+;   - Valid task stack pointers are initialized
+;   - Timer IRQ is correctly installed
+;   - Task contexts are prepared for iret
+;
+; WARNING:
+;   This is not a complete scheduler.
+;   Calling it without initialized task state can crash immediately.
+;   It does not handle TSS, privilege transitions, FPU state, or SMP.
+;
+; Notes:
+;   - Treat this as a context-switching experiment only.
+;   - Adapt heavily before using in a real kernel.
+; ============================================================
 [bits 32]
 
 ; Pointers to the current and next task context structures
