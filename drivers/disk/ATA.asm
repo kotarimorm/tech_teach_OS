@@ -24,6 +24,17 @@
 ;   - Add timeouts to avoid infinite waits on broken hardware.
 ;   - Prefer emulator testing before real hardware experiments.
 ; ============================================================
+; TODO:
+;   - Add timeout handling for all wait loops.
+;   - Check ERR and DF status bits.
+;   - Return success/error status to the caller.
+;   - Support reading more than one sector.
+;   - Support slave drive selection.
+;   - Validate destination buffer assumptions.
+;
+; FIXME:
+;   - The ready-wait logic must distinguish BSY, DRQ, ERR, and DF.
+;   - Do not rely on infinite polling loops in real kernels.
 [bits 32]
 
 ; ============================================================
