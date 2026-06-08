@@ -26,3 +26,13 @@
 ## Debugging
 - `debug/triple_fault.md` — triple fault checklist
 - `debug/troubleshooting.md` — kernel debugging flow
+# Snippet Status
+
+| File | Status | Notes |
+|---|---|---|
+| `cpu/gdt.asm` | Reference | Minimal flat GDT |
+| `cpu/paging.asm` | Experimental | Identity maps early memory only |
+| `cpu/pmm.asm` | Unsafe demo | Does not parse memory maps |
+| `interrupts/idt.asm` | Reference | Requires valid handlers |
+| `drivers/disk/ATA.asm` | Unsafe demo | No timeout/error handling |
+| `kernel/scheduler.asm` | Experimental | Not a complete scheduler |
