@@ -15,6 +15,15 @@
 ;   - This is a small helper, not a complete console system.
 ;   - Adapt calling convention and output backend to your own kernel.
 ; ============================================================
+; TODO:
+;   - Provide a matching print_char implementation example.
+;   - Add print_hex_word and print_hex_dword helpers.
+;   - Add decimal printing helper.
+;   - Document the expected output backend.
+;
+; WARNING:
+;   This helper depends on an external print_char routine.
+;   Adapt the calling convention to your own kernel.
 global print_hex_byte
 extern print_char
 
