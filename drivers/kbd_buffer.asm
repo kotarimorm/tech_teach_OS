@@ -1,5 +1,21 @@
-; drivers/kbd_buffer.asm
-; Circular buffer for keyboard (256 bytes)
+; ============================================================
+; File: drivers/kbd_buffer.asm
+; Topic: Keyboard Buffer
+; Type: Utility snippet
+;
+; Purpose:
+;   Provides a small circular buffer for keyboard input.
+;
+; Assumes:
+;   - Single producer / single consumer usage
+;   - Keyboard IRQ handler pushes data
+;   - Kernel loop or input layer pops data
+;
+; Notes:
+;   - Buffer overflow drops new input.
+;   - No locking is implemented.
+;   - Adapt synchronization if used outside a simple early kernel.
+; ============================================================
 
 global kbd_buf_push
 global kbd_buf_pop
