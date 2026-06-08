@@ -1,3 +1,21 @@
+; ============================================================
+; File: cpu/timer.asm
+; Topic: PIT Timer
+; Type: Reference snippet
+;
+; Purpose:
+;   Programs the PIT channel 0 timer frequency.
+;
+; Assumes:
+;   - 32-bit protected mode
+;   - PIC/IDT setup is handled elsewhere
+;   - Caller provides the desired frequency in EAX
+;
+; Notes:
+;   - This only configures the PIT.
+;   - It does not install an IRQ0 handler.
+;   - It does not unmask the timer IRQ in the PIC.
+; ===========================================================
 [bits 32]
 
 PIT_COMMAND_PORT equ 0x43
