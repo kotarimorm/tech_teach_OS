@@ -1,5 +1,22 @@
-; memory.asm
-; basic memory manipulation routines
+; ============================================================
+; File: lib/memory.asm
+; Topic: Memory Utilities
+; Type: Utility snippet
+;
+; Purpose:
+;   Provides simple memcpy and memset routines.
+;
+; Assumes:
+;   - Valid source and destination pointers
+;   - Writable destination memory
+;   - Caller provides correct byte count
+;
+; Notes:
+;   - These routines do not check bounds.
+;   - Overlapping memcpy regions are not handled like memmove.
+;   - Intended for early kernel/runtime experiments.
+; ============================================================
+
 
 ; memcpy
 ; inputs:
