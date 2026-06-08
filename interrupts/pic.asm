@@ -1,3 +1,21 @@
+; ============================================================
+; File: interrupts/pic.asm
+; Topic: Programmable Interrupt Controller
+; Type: Reference snippet
+;
+; Purpose:
+;   Remaps the legacy PIC away from CPU exception vectors.
+;
+; Assumes:
+;   - x86 legacy PIC environment
+;   - I/O ports are available
+;   - Interrupts are disabled during PIC setup
+;
+; Notes:
+;   - Typical remap offsets are 0x20 for master and 0x28 for slave.
+;   - Mask unused IRQ lines until handlers are installed.
+;   - Enable interrupts only after IDT and handlers are valid.
+; ============================================================
 [bits 32]
 
 PIC1_COMMAND equ 0x20
